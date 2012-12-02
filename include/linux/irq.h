@@ -320,6 +320,7 @@ struct irq_chip {
 	int		(*irq_set_affinity)(struct irq_data *data, const struct cpumask *dest, bool force);
 	int		(*irq_retrigger)(struct irq_data *data);
 	int		(*irq_set_type)(struct irq_data *data, unsigned int flow_type);
+	int		(*irq_read_line)(struct irq_data *data);
 	int		(*irq_set_wake)(struct irq_data *data, unsigned int on);
 
 	void		(*irq_bus_lock)(struct irq_data *data);
@@ -424,6 +425,9 @@ extern int noirqdebug_setup(char *str);
 
 /* Checks whether the interrupt can be requested by request_irq(): */
 extern int can_request_irq(unsigned int irq, unsigned long irqflags);
+
+/* Resending of interrupts :*/
+void check_irq_resend(struct irq_desc *desc, unsigned int irq);
 
 /* Dummy irq-chip implementations: */
 extern struct irq_chip no_irq_chip;
