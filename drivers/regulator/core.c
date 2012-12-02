@@ -51,6 +51,7 @@ static LIST_HEAD(regulator_list);
 static LIST_HEAD(regulator_map_list);
 static bool has_full_constraints;
 static bool board_wants_dummy_regulator;
+static int suppress_info_printing;
 
 static struct dentry *debugfs_root;
 
@@ -3118,6 +3119,22 @@ void regulator_use_dummy_regulator(void)
 	board_wants_dummy_regulator = true;
 }
 EXPORT_SYMBOL_GPL(regulator_use_dummy_regulator);
+
+/**
+ * regulator_suppress_info_printing - disable printing of info messages
+ *
+ * The regulator framework calls print_constraints() when a regulator is
+ * registered.  It also prints a disable message for each unused regulator in
+ * regulator_init_complete().
+ *
+ * Calling this function ensures that such messages do not end up in the
+ * log.
+ */
+void regulator_suppress_info_printing(void)
+{
+	suppress_info_printing = 1;
+}
+EXPORT_SYMBOL_GPL(regulator_suppress_info_printing);
 
 /**
  * rdev_get_drvdata - get rdev regulator driver data
