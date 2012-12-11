@@ -262,6 +262,15 @@ struct mmc_host {
 #define MMC_CAP2_CD_ACTIVE_HIGH	(1 << 10)	/* Card-detect signal active high */
 #define MMC_CAP2_RO_ACTIVE_HIGH	(1 << 11)	/* Write-protect signal active high */
 
+#define MMC_CAP2_PACKED_RD	(1 << 10)	/* Allow packed read */
+#define MMC_CAP2_PACKED_WR	(1 << 11)	/* Allow packed write */
+#define MMC_CAP2_PACKED_CMD	(MMC_CAP2_PACKED_RD | \
+				 MMC_CAP2_PACKED_WR) /* Allow packed commands */
+#define MMC_CAP2_PACKED_WR_CONTROL (1 << 12) /* Allow write packing control */
+
+#define MMC_CAP2_SANITIZE	(1 << 13)		/* Support Sanitize */
+#define MMC_CAP2_INIT_BKOPS	    (1 << 15)	/* Need to set BKOPS_EN */
+#define MMC_CAP2_CLK_SCALE	(1 << 16)	/* Allow dynamic clk scaling */
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 	unsigned int        power_notify_type;
 #define MMC_HOST_PW_NOTIFY_NONE		0
@@ -309,6 +318,7 @@ struct mmc_host {
 
 	wait_queue_head_t	wq;
 	struct task_struct	*claimer;	/* task that has host claimed */
+	struct task_struct	*suspend_task;
 	int			claim_cnt;	/* "claim" nesting count */
 
 	struct delayed_work	detect;

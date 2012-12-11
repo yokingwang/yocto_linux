@@ -242,6 +242,7 @@ struct mmc_card {
 #define MMC_POWEROFF_SHORT		2
 #define MMC_POWEROFF_LONG		3
 
+#define MMC_QUIRK_INAND_DATA_TIMEOUT  (1<<8)    /* For incorrect data timeout */
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */
  	unsigned int		pref_erase;	/* in sectors */
