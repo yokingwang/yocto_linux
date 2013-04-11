@@ -568,11 +568,7 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 			break;
 		}
 		c = msm_hsl_read(port, regmap[vid][UARTDM_RF]);
-		if (sr & UARTDM_SR_RX_BREAK_BMSK) {
-			port->icount.brk++;
-			if (uart_handle_break(port))
-				continue;
-		} else if (sr & UARTDM_SR_PAR_FRAME_BMSK) {
+		if (sr & UARTDM_SR_PAR_FRAME_BMSK) {
 			port->icount.frame++;
 		} else {
 			port->icount.rx++;
@@ -586,7 +582,7 @@ static void handle_rx(struct uart_port *port, unsigned int misr)
 			flag = TTY_FRAME;
 
 		/* TODO: handle sysrq */
-		/* if (!uart_handle_sysrq_char(port, c)) */
+		if (!uart_handle_sysrq_char(port, c))
 		tty_insert_flip_string(tty, (char *) &c,
 				       (count > 4) ? 4 : count);
 		count -= 4;
@@ -691,12 +687,29 @@ static irqreturn_t msm_hsl_irq(int irq, void *dev_id)
 	unsigned int vid;
 	unsigned int misr;
 	unsigned long flags;
+	int sr;
 
 	spin_lock_irqsave(&port->lock, flags);
 	vid = msm_hsl_port->ver_id;
 	misr = msm_hsl_read(port, regmap[vid][UARTDM_MISR]);
 	/* disable interrupt */
 	msm_hsl_write(port, 0, regmap[vid][UARTDM_IMR]);
+
+	if (misr & UARTDM_ISR_RXBREAK_BMSK){
+		sr = msm_hsl_read(port, regmap[vid][UARTDM_SR]);
+		/* it is weird that two interrupts are triggered when
+		   issue a break signal, and the test result shows bit
+		   9 of UARTDM_SR can be used to distiguish the two
+		   interrupts
+		 */
+		if (sr & 0x100) {
+			port->icount.brk++;
+			uart_handle_break(port);
+		}
+
+		msm_hsl_write(port, RESET_BREAK_INT,
+					regmap[vid][UARTDM_CR]);
+	}
 
 	if (misr & (UARTDM_ISR_RXSTALE_BMSK | UARTDM_ISR_RXLEV_BMSK)) {
 		handle_rx(port, misr);
@@ -935,7 +948,7 @@ static void msm_hsl_set_baud_rate(struct uart_port *port,
 	msm_hsl_write(port, RESET_STALE_INT, regmap[vid][UARTDM_CR]);
 	/* turn on RX and CTS interrupts */
 	msm_hsl_port->imr = UARTDM_ISR_RXSTALE_BMSK
-		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK;
+		| UARTDM_ISR_DELTA_CTS_BMSK | UARTDM_ISR_RXLEV_BMSK | UARTDM_ISR_RXBREAK_BMSK;
 	msm_hsl_write(port, msm_hsl_port->imr, regmap[vid][UARTDM_IMR]);
 	msm_hsl_write(port, 6500, regmap[vid][UARTDM_DMRX]);
 	msm_hsl_write(port, STALE_EVENT_ENABLE, regmap[vid][UARTDM_CR]);
