@@ -1,3 +1,4 @@
+#define CONFIG_USB_GADGET_DEBUG_FILES
 /*
  * ci13xxx_udc.c - MIPS USB IP core family device controller
  *
@@ -2246,8 +2247,22 @@ static void isr_resume_handler(struct ci13xxx *udc)
  */
 static void isr_suspend_handler(struct ci13xxx *udc)
 {
+/* SWISTART */
+#if !defined(CONFIG_SIERRA)
 	if (udc->gadget.speed != USB_SPEED_UNKNOWN &&
 		udc->vbus_active) {
+#else  /* !defined(CONFIG_SIERRA) */
+/* When udc->gadget.speed = USB_SPEED_UNKNOWN on power up
+ * USB driver (msm_otg.c) does not suspend proplery after power up.
+ * We allow the interrupt to be properly handled below (otg_set_suspend).
+ */
+	if (udc->vbus_active) {
+		if (udc->gadget.speed == USB_SPEED_UNKNOWN) {
+			udc->gadget.speed = hw_port_is_high_speed() ?
+				USB_SPEED_HIGH : USB_SPEED_FULL;
+		}
+#endif /* !defined(CONFIG_SIERRA) */
+/* SWISTOP */
 		if (udc->suspended == 0) {
 			spin_unlock(udc->lock);
 			udc->driver->suspend(&udc->gadget);

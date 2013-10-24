@@ -1163,7 +1163,7 @@ static void __init msm_timer_init(void)
 		clockevents_register_device(ce);
 	}
 	msm_sched_clock_init();
-
+#if 0
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 	if (is_smp()) {
 		__raw_writel(1,
@@ -1171,7 +1171,7 @@ static void __init msm_timer_init(void)
 		set_delay_fn(read_current_timer_delay_loop);
 	}
 #endif
-
+#endif
 #ifdef CONFIG_LOCAL_TIMERS
 	local_timer_register(&msm_lt_ops);
 #endif
