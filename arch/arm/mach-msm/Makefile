@@ -384,6 +384,6 @@ ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
 # SWISTART
-obj-$(CONFIG_SIERRA) += sierra_bscommon.o
+obj-$(CONFIG_SIERRA) += sierra_bscommon.o sierra_i2c.o sierra_spi.o
 obj-$(CONFIG_SIERRA_SMEM) += sierra_smem.o sierra_smem_errdump.o
 #SWISTOP
