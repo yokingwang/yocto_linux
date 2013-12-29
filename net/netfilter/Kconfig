@@ -705,6 +705,17 @@ config NETFILTER_XT_MATCH_ADDRTYPE
 	  If you want to compile it as a module, say M here and read
 	  <file:Documentation/kbuild/modules.txt>.  If unsure, say `N'.
 
+config NETFILTER_XT_MATCH_CGROUP
+	tristate '"control group" match support'
+	default m
+	depends on NETFILTER_ADVANCED
+	depends on CGROUPS
+	select CGROUP_NET_CLASSID
+	---help---
+	Socket/process control group matching allows you to match locally
+	generated packets based on which net_cls control group processes
+	belong to.
+
 config NETFILTER_XT_MATCH_CLUSTER
 	tristate '"cluster" match support'
 	depends on NF_CONNTRACK
