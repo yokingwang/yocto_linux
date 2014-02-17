@@ -93,10 +93,10 @@ extern struct platform_device apq8064_device_cache_erp;
 
 extern struct platform_device msm9615_device_uart_gsbi4;
 /* SWISTART */
-#ifdef CONFIG_SIERRA
-#ifdef CONFIG_SIERRA_AR7
+#ifdef CONFIG_SIERRA_UART
 extern struct platform_device msm9615_device_uart_gsbi5;
-#endif /* CONFIG_SIERRA_AR7 */
+#endif /* CONFIG_SIERRA */
+#ifdef CONFIG_SIERRA_EXTERNAL_CODEC
 extern struct platform_device msm9615_device_qup_i2c_gsbi2;
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */

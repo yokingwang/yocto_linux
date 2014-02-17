@@ -221,10 +221,10 @@
 
 #include "gadget_chips.h"
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 #include <linux/usb/sierra_ududefs.h>
 #include "usb_netlink_base.h"
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 /*------------------------------------------------------------------------*/
@@ -247,7 +247,7 @@ static int csw_hack_sent;
 
 /*-------------------------------------------------------------------------*/
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 static int swoc_en;
 static int sd_en;
 static int usr_pid;
@@ -256,7 +256,7 @@ static int switch_sig = 0;
 
 /*SCSI commands we recognize */
 #define SC_GET_CONFIG	0x46
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 struct fsg_dev;
@@ -545,7 +545,7 @@ static void bulk_out_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_unlock(&common->lock);
 }
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 /*netlink for switching cdrom to ecm */
 static int vendor_setup_req(struct fsg_dev *fsg,
                            const struct usb_ctrlrequest *ctrl)
@@ -646,7 +646,7 @@ value );
 		 }
         return value;
 }
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 static int fsg_setup(struct usb_function *f,
 		     const struct usb_ctrlrequest *ctrl)
@@ -666,10 +666,10 @@ static int fsg_setup(struct usb_function *f,
 	dump_msg(fsg, "ep0-setup", (u8 *) ctrl, sizeof(*ctrl));
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
     if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR)
         return vendor_setup_req(fsg, ctrl);
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 	switch (ctrl->bRequest) {
@@ -767,7 +767,7 @@ static bool start_out_transfer(struct fsg_common *common, struct fsg_buffhd *bh)
 	return true;
 }
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 static int do_get_config( struct fsg_common *common, struct fsg_buffhd *bh)
 {
     u8		*buf = (u8 *) bh->buf;
@@ -778,7 +778,7 @@ static int do_get_config( struct fsg_common *common, struct fsg_buffhd *bh)
     start_transfer(common->fsg,common->fsg->bulk_in,bh->inreq,&bh->inreq_busy,&bh->state);
     return 0;
 }
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 static int sleep_thread(struct fsg_common *common)
@@ -1454,7 +1454,7 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
 	}
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
     memset(buf, 0, 48);
     buf[1] = 0x2e;
     buf[2] = 1;
@@ -1522,7 +1522,7 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
 	buf[14] = 0xAA;			/* Lead-out track number */
 	store_cdrom_address(&buf[16], msf, curlun->num_sectors);
 	return 20;
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 }
 
@@ -1669,14 +1669,14 @@ static int do_start_stop(struct fsg_common *common)
 	up_write(&common->filesem);
 	down_read(&common->filesem);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
     switch_sig = 1;
     switch_cmd.MsgType = CDROM_TO_ECM;
     if( usr_pid > 0 )
         switch_sig = 0;
     sendnlmsg((char*)&switch_cmd,sizeof(switch_cmd),usr_pid);
     pr_info("\n%s: SWI__TRU-Install_TBD switch to network mode", __func__ );
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 
 	return common->ops && common->ops->post_eject
@@ -2178,7 +2178,7 @@ static int do_scsi_command(struct fsg_common *common)
 	down_read(&common->filesem);	/* We're using the backing file */
 	switch (common->cmnd[0]) {
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	case SC_GET_CONFIG:
 		common->data_size_from_cmnd = common->cmnd[4];
 		reply = check_command(common, 6, DATA_DIR_TO_HOST,
@@ -2186,7 +2186,7 @@ static int do_scsi_command(struct fsg_common *common)
 				"GET CONFIG");
             if (reply == 0)
                 reply = do_get_config(common, bh);
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	case INQUIRY:
 		common->data_size_from_cmnd = common->cmnd[4];
@@ -3111,7 +3111,7 @@ buffhds_first_it:
 		}
 	}
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
     snprintf(common->inquiry_string, sizeof common->inquiry_string,
 		 "%-8s%-16s%4s", "Aircard",
           /* Assume product name dependent on the first LUN */
@@ -3124,7 +3124,7 @@ buffhds_first_it:
 				     ? "File-Stor Gadget"
 				     : "File-CD Gadget"),
 		 i);
-#endif /* SIERRA */
+#endif /* CONFIG_SIERRA */
 /* SWISTOP */
 	/*
 	 * Some peripheral controllers are known not to be able to

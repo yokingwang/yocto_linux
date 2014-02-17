@@ -51,9 +51,9 @@
 #include <mach/rpm-regulator.h>
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 
-/* Change based on 80-N5423-14 */
+/* C_VDDMINhange based on 80-N5423-14 */
 #include <linux/gpio.h>
 #include <linux/irq.h>
 
@@ -844,7 +844,7 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 				break;
 			clear_bit(A_BUS_SUSPEND, &motg->inputs);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 			/* pm_runtime_suspend(otg->dev) may fail with otg->dev.power.usage_count=2, so
 			 * in pm suspended state, sm_work should NOT be scheduled and resume must be done by
 			 * msm_otg_pm_resume. This handling is done throughout this file but missed here. */
@@ -864,7 +864,7 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 
 /* SWISTART */
 /* Based on case 1091889 */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 static void pm_suspend_w(struct work_struct *w)
 {
 	struct msm_otg *motg = the_msm_otg;
@@ -987,7 +987,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * PHY retention and collapse can not happen with VDP_SRC enabled.
 	 */
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 	if (otg_pc >= BSPC_VDDMIN_SUPPORT)
 	{
 		/* Change based on 80-N5423-14 */
@@ -1029,7 +1029,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		motg->lpm_flags |= PHY_RETENTIONED;
 	}
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 	}
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
@@ -1093,7 +1093,7 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	dev_info(phy->dev, "USB in low power mode\n");
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 	if (otg_pc >= BSPC_SUSMEM_SUPPORT && !host_bus_suspend && device_bus_suspend)
 	{
 		dev_info(phy->dev, "PM_SUSPEND_MEM start\n");
@@ -1126,7 +1126,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 		return 0;
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 	if (delayed_work_pending(&pm_suspend_work))
 		cancel_delayed_work(&pm_suspend_work);
 #endif /* CONFIG_SIERRA */
@@ -1161,7 +1161,7 @@ static int msm_otg_resume(struct msm_otg *motg)
 		msm_hsusb_mhl_switch_enable(motg, 1);
 		msm_hsusb_config_vddcx(1);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 		/* Change based on 80-N5423-14 */
 		/* Disabling MPP Pin (set the MPP as an input) */
 		if (pdata->vdd_min_enable)
@@ -2472,7 +2472,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 	bool work = 0, srp_reqd;
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_OTG
 	enum usb_otg_state	otg_state = otg->phy->state;
 	static enum usb_chg_type charger_type = USB_INVALID_CHARGER;
 #endif
@@ -2561,7 +2561,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 					mod_timer(&motg->chg_check_timer,
 							CHG_RECHECK_DELAY);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 					/* Change based on 80-N5423-14 */
 					if (motg->pdata->otg_control == OTG_PHY_CONTROL && motg->pdata->mpm_otgsessvld_int)
 					{
@@ -2598,7 +2598,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 			msm_otg_notify_charger(motg, 0);
 			msm_otg_reset(otg->phy);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 			/* Change based on 80-N5423-14 */
 			if (motg->pdata->otg_control == OTG_PHY_CONTROL && motg->pdata->mpm_otgsessvld_int)
 				msm_mpm_set_pin_type(motg->pdata->mpm_otgsessvld_int, IRQ_TYPE_EDGE_RISING);
@@ -3077,7 +3077,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 	if (work)
 		queue_work(system_nrt_wq, &motg->sm_work);
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_OTG
 	/* Notfiy userspace when state changed */
 	if ((otg_state != otg->phy->state) || (charger_type != motg->chg_type)) {
 		dev_info(otg->phy->dev, "OTG state %s, charger_type %s\n", (otg_state != otg->phy->state)?"changed":"NOT changed",
@@ -3710,7 +3710,7 @@ static void msm_otg_debugfs_cleanup(void)
 }
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_OTG
 static ssize_t show_chg_type(struct device *dev, struct device_attribute *attr,
 			   char *buf)
 {
@@ -4309,7 +4309,7 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 			"not available\n");
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 	/* Init sysfs */
 	ret = msm_otg_sysfs_create_files(&pdev->dev);
 	if (ret)
@@ -4445,7 +4445,7 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 	msm_otg_mhl_register_callback(motg, NULL);
 	msm_otg_debugfs_cleanup();
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_OTG
 	/* Remove sysfs */
 	msm_otg_sysfs_remove_files(&pdev->dev);
 #endif /* CONFIG_SIERRA */
@@ -4556,7 +4556,7 @@ static int msm_otg_pm_suspend(struct device *dev)
 	dev_dbg(dev, "OTG PM suspend\n");
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 	/* ensure any pending pm_suspend is cancelled */
 	if (delayed_work_pending(&pm_suspend_work))
 		cancel_delayed_work(&pm_suspend_work);

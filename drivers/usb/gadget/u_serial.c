@@ -1354,7 +1354,7 @@ int gserial_setup(struct usb_gadget *g, unsigned count)
 	gs_tty_driver->init_termios.c_ospeed = 9600;
 
 /* SWISTART */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_USB_COMP
 	/* set ~ICANON so that serial data will not be buffered
 	 * set ~ECHO so that serial data from host will not be echoed back
 	 * These two settings are required for NMEA port so that the short NMEA

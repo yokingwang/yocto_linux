@@ -36,7 +36,7 @@ struct pmic8xxx_pwrkey {
 	struct input_dev *pwr;
 	int key_press_irq;
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_PWRKEY)
 	int key_release_irq; 
 	bool press; 
 	struct device *dev;
@@ -206,7 +206,7 @@ static int __devinit pmic8xxx_pwrkey_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pwrkey);
 
 /* SWISTART */
-#if defined(CONFIG_SIERRA)
+#if defined(CONFIG_SIERRA_PWRKEY)
 	/* check power key status during boot */
 	err = pm8xxx_read_irq_stat(pdev->dev.parent, key_press_irq);
 	if (err < 0) {

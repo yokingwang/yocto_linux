@@ -225,7 +225,7 @@ struct msm_otg_platform_data {
 	const char *mhl_dev_name;
 /* SWISTART */
 /* Change based on 80-N5423-14 */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 	unsigned vdd_min_enable;
 #endif
 /* SWISTOP */
@@ -488,7 +488,7 @@ enum usb_bam {
 
 /* SWISTART */
 /* Change based on 80-N5423-14 */
-#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_VDDMIN
 int msm_get_usb_det(void);
 void msm9615_pm8xxx_gpio_mpp_init_swi(void);
 void msm_otg_vddmin_init(void);
