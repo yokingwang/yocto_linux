@@ -1363,6 +1363,11 @@ int gserial_setup(struct usb_gadget *g, unsigned count)
 	 *        are not affected and they are not using this function)                
 	 */ 
 	gs_tty_driver->init_termios.c_lflag &= ~(ICANON | ECHO);
+	/*set ~ONLCR so that serial data will not turn '\n' to '\r\n'
+	 *This flag is set to ONLCR in tty_std_termios which is the benefit of tty drivers.
+	 *But here should be modified for customer.
+	 */
+	gs_tty_driver->init_termios.c_oflag &= (~ONLCR);
 #endif /* CONFIG_SIERRA*/
 /* SWISTOP */
 
