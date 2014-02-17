@@ -1143,6 +1143,11 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	if (gadget_is_dualspeed(c->cdev->gadget)) {
 		c->highspeed = true;
 		f->hs_descriptors = usb_copy_descriptors(f_audio_desc);
+/* SWISTART */
+#ifdef CONFIG_SIERRA_USB_COMP
+		f->descriptors = usb_copy_descriptors(f_audio_desc);
+#endif
+/* SWISTOP */
 	} else {
 		f->descriptors = usb_copy_descriptors(f_audio_desc);
 	}
