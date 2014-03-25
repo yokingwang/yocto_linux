@@ -67,3 +67,6 @@ obj-$(CONFIG_GPIO_WM8994)	+= gpio-wm8994.o
 obj-$(CONFIG_GPIO_XILINX)	+= gpio-xilinx.o
 obj-$(CONFIG_GPIO_PM8XXX)	+= pm8xxx-gpio.o
 obj-$(CONFIG_GPIO_PM8XXX_MPP) 	+= pm8xxx-mpp.o
+#SIERRA
+obj-$(CONFIG_SIERRA_GPIO_WAKEN)	+= sierra_gpio_wake_n.o
+#SIERRA

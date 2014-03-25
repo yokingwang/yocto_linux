@@ -67,7 +67,13 @@ enum bspctype
 	BSPC_SUPPORT_MAX
 };
 
+#ifdef CONFIG_SIERRA_GPIO_WAKEN
+extern bool wake_n_waked;
+unsigned char otg_pc;
+#else
 static unsigned char otg_pc;
+#endif
+
 static bool otg_vddmin_inited = 0;
 extern void msm9615_pm8xxx_gpio_mpp_init_vddmin(void);
 
@@ -1094,7 +1100,11 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 /* SWISTART */
 #ifdef CONFIG_SIERRA_VDDMIN
+	#ifdef CONFIG_SIERRA_GPIO_WAKEN
+	if (otg_pc >= BSPC_SUSMEM_SUPPORT && !host_bus_suspend && device_bus_suspend && wake_n_waked == false)
+	#else
 	if (otg_pc >= BSPC_SUSMEM_SUPPORT && !host_bus_suspend && device_bus_suspend)
+	#endif
 	{
 		dev_info(phy->dev, "PM_SUSPEND_MEM start\n");
 		/* only perfrom pm_suspend_w if
