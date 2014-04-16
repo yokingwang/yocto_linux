@@ -1465,7 +1465,6 @@ MODULE_LICENSE ("GPL");
 #endif
 
 #ifdef CONFIG_USB_EHCI_MSM_HSIC
-#define HSIC_PLATFORM_DRIVER		ehci_msm_hsic_driver
 #include "ehci-msm-hsic.c"
 #define PLATFORM_DRIVER_PRESENT
 #endif
@@ -1599,7 +1598,6 @@ static int __init ehci_hcd_init(void)
 	for (i = 0; i < ARRAY_SIZE(plat_drivers); i++) {
 /* SWISTART */
 #ifdef CONFIG_SIERRA_HSIC
-#ifndef HSIC_PLATFORM_DRIVER
 		if(!((bsreadboottoappflag()& BCBOOTAPPFLAG_HSIC_ENABLE_M)))
 		{
 			pr_info("%s():HSIC host is disabled", __func__ );
@@ -1608,15 +1606,6 @@ static int __init ehci_hcd_init(void)
 				continue;
 			}
 		}
-#else /* HSIC_PLATFORM_DRIVER */
-		if(strcmp(plat_drivers[i]->driver.name, hsichostname )== 0)
-		{
-			pr_info("%s(): HSIC host: boottoapp says '%s' should be %s",
-					__func__, hsichostname,
-					((bsreadboottoappflag()& BCBOOTAPPFLAG_HSIC_ENABLE_M)) ? "enabled" : "disabled");
-			continue;
-		}
-#endif /* HSIC_PLATFORM_DRIVER */
 #endif /* CONFIG_SIERRA_HSIC */
 /* SWISTOP */
 		retval = platform_driver_register(plat_drivers[i]);
@@ -1651,18 +1640,8 @@ static int __init ehci_hcd_init(void)
 		goto clean4;
 #endif
 
-#ifdef HSIC_PLATFORM_DRIVER
-	retval = platform_driver_register(&HSIC_PLATFORM_DRIVER);
-	if (retval < 0)
-		goto clean5;
-#endif
-
 	return retval;
 
-#ifdef HSIC_PLATFORM_DRIVER
-	platform_driver_unregister(&HSIC_PLATFORM_DRIVER);
-clean5:
-#endif
 #ifdef XILINX_OF_PLATFORM_DRIVER
 	/* platform_driver_unregister(&XILINX_OF_PLATFORM_DRIVER); */
 clean4:
