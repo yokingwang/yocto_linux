@@ -2107,6 +2107,9 @@ static bool msm_chg_check_primary_det(struct msm_otg *motg)
 	return ret;
 }
 
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_USB_CHARGER
+/*SWISTOP*/
 static void msm_chg_enable_primary_det(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
@@ -2131,7 +2134,9 @@ static void msm_chg_enable_primary_det(struct msm_otg *motg)
 		break;
 	}
 }
-
+/*SWISTART*/
+#endif /*CONFIG_SIERRA_USB_CHARGER*/
+/*SWISTOP*/
 static bool msm_chg_check_dcd(struct msm_otg *motg)
 {
 	struct usb_phy *phy = &motg->phy;
@@ -2328,7 +2333,11 @@ static void msm_chg_detect_work(struct work_struct *w)
 		tmout = ++motg->dcd_retries == MSM_CHG_DCD_MAX_RETRIES;
 		if (is_dcd || tmout) {
 			msm_chg_disable_dcd(motg);
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_USB_CHARGER
 			msm_chg_enable_primary_det(motg);
+#endif/*CONFIG_SIERRA_USB_CHARGER*/
+/*SWISTOP*/
 			delay = MSM_CHG_PRIMARY_DET_TIME;
 			motg->chg_state = USB_CHG_STATE_DCD_DONE;
 		} else {
