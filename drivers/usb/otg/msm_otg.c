@@ -882,7 +882,15 @@ static void pm_suspend_w(struct work_struct *w)
 /* SWISTOP */
 
 #define PHY_SUSPEND_TIMEOUT_USEC	(500 * 1000)
-#define PHY_RESUME_TIMEOUT_USEC	(100 * 1000)
+#define PHY_RESUME_TIMEOUT_USEC		(100 * 1000)
+
+/* SWISTART */
+/* Based on case 01299427 */
+#ifdef CONFIG_SIERRA_VDDMIN
+#define PORT_RESUME					(1 << 6)
+#endif
+/* SWISTOP */
+
 
 #ifdef CONFIG_PM_SLEEP
 static int msm_otg_suspend(struct msm_otg *motg)
@@ -898,6 +906,17 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	if (atomic_read(&motg->in_lpm))
 		return 0;
+
+/* SWISTART */
+/* Based on case 01299427 */
+#ifdef CONFIG_SIERRA
+	if ((readl_relaxed(USB_PORTSC) & PORT_RESUME))
+		return -EBUSY;
+ 
+	if (phy->state == OTG_STATE_B_PERIPHERAL && !test_bit(A_BUS_SUSPEND, &motg->inputs))
+		return -EBUSY;
+#endif
+/* SWISTOP */
 
 	disable_irq(motg->irq);
 	host_bus_suspend = !test_bit(MHL, &motg->inputs) && phy->otg->host &&
@@ -1131,6 +1150,9 @@ static int msm_otg_resume(struct msm_otg *motg)
 	unsigned temp;
 	u32 phy_ctrl_val = 0;
 	unsigned ret;
+	bool in_device_mode;
+	bool bus_is_suspended;
+	bool is_remote_wakeup;
 
 	if (!atomic_read(&motg->in_lpm))
 		return 0;
@@ -1197,12 +1219,33 @@ static int msm_otg_resume(struct msm_otg *motg)
 	 * PHY comes out of low power mode (LPM) in case of wakeup
 	 * from asynchronous interrupt.
 	 */
-	if (!(readl(USB_PORTSC) & PORTSC_PHCD))
+	if (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD))
 		goto skip_phy_resume;
 
-	writel(readl(USB_PORTSC) & ~PORTSC_PHCD, USB_PORTSC);
+	in_device_mode = phy->otg->gadget && test_bit(ID, &motg->inputs);
+
+	bus_is_suspended = readl_relaxed(USB_PORTSC) & PORTSC_SUSP_MASK;
+
+	is_remote_wakeup = in_device_mode && bus_is_suspended;
+
+	if (is_remote_wakeup &&
+	    (atomic_read(&(motg->set_fpr_with_lpm_exit)) ||
+	     pdata->rw_during_lpm_workaround)) {
+		/* In some targets there is a HW issue with remote wakeup
+		 * during low-power mode. As a workaround, the FPR bit
+		 * is written simultaneously with the clearing of the
+		 * PHCD bit.
+		 */
+		writel_relaxed( (readl_relaxed(USB_PORTSC) & ~PORTSC_PHCD) | PORTSC_FPR_MASK,
+						USB_PORTSC);
+			
+			atomic_set(&(motg->set_fpr_with_lpm_exit), 0);
+	} else {
+		writel_relaxed(readl_relaxed(USB_PORTSC) & ~PORTSC_PHCD, USB_PORTSC);
+	}
+
 	while (cnt < PHY_RESUME_TIMEOUT_USEC) {
-		if (!(readl(USB_PORTSC) & PORTSC_PHCD))
+		if (!(readl_relaxed(USB_PORTSC) & PORTSC_PHCD))
 			break;
 		udelay(1);
 		cnt++;
@@ -2575,10 +2618,8 @@ static void msm_otg_sm_work(struct work_struct *w)
 					break;
 				case USB_SDP_CHARGER:
 					msm_otg_start_peripheral(otg, 1);
-					otg->phy->state =
-						OTG_STATE_B_PERIPHERAL;
-					mod_timer(&motg->chg_check_timer,
-							CHG_RECHECK_DELAY);
+					otg->phy->state = OTG_STATE_B_PERIPHERAL;
+					mod_timer(&motg->chg_check_timer, CHG_RECHECK_DELAY);
 /* SWISTART */
 #ifdef CONFIG_SIERRA_VDDMIN
 					/* Change based on 80-N5423-14 */
@@ -3104,7 +3145,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 		charger_type = motg->chg_type;
 		kobject_uevent(&motg->phy.dev->kobj, KOBJ_CHANGE);
 	}
-#endif
+#endif /* CONFIG_SIERRA_USB_OTG  */
 /* SWISTOP */
 }
 
@@ -3870,10 +3911,11 @@ __maybe_unused static int msm_otg_sysfs_remove_files(struct device *dev)
 		return -EINVAL;
 	device_remove_file(dev, &dev_attr_chg_type);
 	device_remove_file(dev, &dev_attr_otg_state);
+	device_remove_file(dev, &dev_attr_otg_pc);
 	return 0;
 }
 
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_OTG */
 /* SWISTOP */
 
 #define MSM_OTG_CMD_ID		0x09
@@ -4036,6 +4078,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 				&pdata->phy_type);
 	of_property_read_u32(node, "qcom,hsusb-otg-pmic-id-irq",
 				&pdata->pmic_id_irq);
+	of_property_read_u32(node, "qcom,hsusb-otg-rw-during-lpm-workaround",
+				(u32*)&pdata->rw_during_lpm_workaround);
 	pdata->disable_reset_on_disconnect = of_property_read_bool(node,
 				"qcom,hsusb-otg-disable-reset");
 	pdata->pnoc_errata_fix = of_property_read_bool(node,
@@ -4339,10 +4383,10 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	if (motg->pdata->otg_control == OTG_PHY_CONTROL && motg->pdata->mpm_otgsessvld_int)
 		msm_mpm_set_pin_type(motg->pdata->mpm_otgsessvld_int, IRQ_TYPE_EDGE_RISING);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_VDDMIN */
 /* SWISTOP */
 
-#if 0
+#if 1 /* DM, FIXME: This is enabled in SZ QCOM kernel, why was it disables here? */
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
 #endif
@@ -4467,7 +4511,7 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 #ifdef CONFIG_SIERRA_USB_OTG
 	/* Remove sysfs */
 	msm_otg_sysfs_remove_files(&pdev->dev);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_OTG */
 /* SWISTOP */
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_delayed_work_sync(&motg->pmic_id_status_work);

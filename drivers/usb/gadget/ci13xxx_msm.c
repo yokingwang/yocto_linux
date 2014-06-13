@@ -89,26 +89,62 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 	case CI13XXX_CONTROLLER_SUSPEND_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_SUSPEND_EVENT received\n");
 		ci13xxx_msm_suspend();
-		/* SWISTART */
-		#ifdef CONFIG_SIERRA_GPIO_WAKEN
+/* SWISTART */
+#ifdef CONFIG_SIERRA_GPIO_WAKEN
 		flag_usb_connect = 0;
-		#endif
-		/* SWISTOP */
+#endif
+/* SWISTOP */
 		break;
 	case CI13XXX_CONTROLLER_RESUME_EVENT:
 		dev_info(dev, "CI13XXX_CONTROLLER_RESUME_EVENT received\n");
 		ci13xxx_msm_resume();
-		/* SWISTART */
-		#ifdef CONFIG_SIERRA_GPIO_WAKEN
+/* SWISTART */
+#ifdef CONFIG_SIERRA_GPIO_WAKEN
 		flag_usb_connect = 1;
-		#endif
-		/* SWISTOP */
+#endif
+/* SWISTOP */
 		break;
 
 	default:
 		dev_dbg(dev, "unknown ci13xxx_udc event\n");
 		break;
 	}
+}
+
+static bool ci13xxx_msm_in_lpm(struct ci13xxx *udc)
+{
+#if 0 /* DM, FIXME struct msm_org does not contain member otg, but contains
+         phy.otg . */
+	struct msm_otg *otg;	
+
+	if (udc == NULL)
+		return false;
+
+	if (udc->transceiver == NULL)
+		return false;
+
+	otg = container_of(udc->transceiver, struct msm_otg, otg);
+
+	return (atomic_read(&otg->in_lpm) != 0);
+#endif
+}
+
+static void ci13xxx_msm_set_fpr_flag(struct ci13xxx *udc)
+{
+#if 0 /* DM, FIXME struct msm_org does not contain member otg, but contains
+         phy.otg . */
+	struct msm_otg *otg;
+
+	if (udc == NULL)
+		return;
+
+	if (udc->transceiver == NULL)
+		return;
+
+	otg = container_of(udc->transceiver, struct msm_otg, otg);
+
+	atomic_set(&otg->set_fpr_with_lpm_exit, 1);
+#endif
 }
 
 static irqreturn_t ci13xxx_msm_resume_irq(int irq, void *data)
@@ -133,6 +169,8 @@ static struct ci13xxx_udc_driver ci13xxx_msm_udc_driver = {
 				  CI13XXX_IS_OTG,
 
 	.notify_event		= ci13xxx_msm_notify_event,
+	.in_lpm                 = ci13xxx_msm_in_lpm,
+	.set_fpr_flag           = ci13xxx_msm_set_fpr_flag,
 };
 
 static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
@@ -155,11 +193,13 @@ static int ci13xxx_msm_install_wake_gpio(struct platform_device *pdev,
 	dev_dbg(&pdev->dev, "_udc_ctxt.gpio_irq = %d and irq = %d\n",
 			_udc_ctxt.wake_gpio, wake_irq);
 	ret = request_irq(wake_irq, ci13xxx_msm_resume_irq,
+/* SWISTART */
 #ifndef CONFIG_SIERRA_USB_OTG
 		IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "usb resume", NULL);
 #else
 		IRQF_TRIGGER_RISING | IRQF_ONESHOT, "usb resume", NULL);
 #endif
+/* SWISTOP */
 	if (ret < 0) {
 		dev_err(&pdev->dev, "could not register USB_RESUME IRQ.\n");
 		goto gpio_free;

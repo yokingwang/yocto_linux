@@ -101,12 +101,15 @@ struct ci13xxx_ep {
 		struct ci13xxx_qh *ptr;
 		dma_addr_t         dma;
 	}                                      qh;
+	struct list_head                       rw_queue;
 	int                                    wedge;
 
 	/* global resources */
 	spinlock_t                            *lock;
 	struct device                         *device;
 	struct dma_pool                       *td_pool;
+	struct ci13xxx_td                     *last_zptr;
+	dma_addr_t                            last_zdma;
 	unsigned long dTD_update_fail_count;
 	unsigned long			      prime_fail_count;
 	int				      prime_timer_count;
@@ -133,6 +136,8 @@ struct ci13xxx_udc_driver {
 #define CI13XXX_CONTROLLER_UDC_STARTED_EVENT	    6
 
 	void	(*notify_event) (struct ci13xxx *udc, unsigned event);
+	bool    (*in_lpm) (struct ci13xxx *udc);
+	void    (*set_fpr_flag) (struct ci13xxx *udc);
 };
 
 /* CI13XXX UDC descriptor & global resources */
@@ -143,6 +148,7 @@ struct ci13xxx {
 	struct dma_pool           *qh_pool;   /* DMA pool for queue heads */
 	struct dma_pool           *td_pool;   /* DMA pool for transfer descs */
 	struct usb_request        *status;    /* ep0 status request */
+	void                      *status_buf;/* GET_STATUS buffer */
 
 	struct usb_gadget          gadget;     /* USB slave device */
 	struct ci13xxx_ep          ci13xxx_ep[ENDPT_MAX]; /* extended endpts */
@@ -155,6 +161,7 @@ struct ci13xxx {
 	u8                         configured;  /* is device configured */
 	u8                         test_mode;  /* the selected test mode */
 
+	bool                       rw_pending; /* Remote wakeup pending flag */
 	struct delayed_work        rw_work;    /* remote wakeup delayed work */
 	struct usb_gadget_driver  *driver;     /* 3rd party gadget driver */
 	struct ci13xxx_udc_driver *udc_driver; /* device controller driver */

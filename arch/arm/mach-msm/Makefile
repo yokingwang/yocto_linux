@@ -146,10 +146,7 @@ obj-$(CONFIG_MSM_DALRPC) += dal.o
 obj-$(CONFIG_MSM_DALRPC_TEST) += dal_remotetest.o
 obj-$(CONFIG_ARCH_MSM7X30) += dal_axi.o
 obj-$(CONFIG_ARCH_MSM7X27A) += dal_axi.o
-obj-$(CONFIG_MSM_ADSP) += qdsp5/
-obj-$(CONFIG_MSM7KV2_AUDIO) += qdsp5v2/
 obj-$(CONFIG_MSM_RPCSERVER_HANDSET) += rpc_server_handset.o
-obj-$(CONFIG_MSM_QDSP6) += qdsp6/
 obj-$(CONFIG_MSM8X60_AUDIO) += qdsp6v2/
 obj-$(CONFIG_MSM_AUDIO_QDSP6) += qdsp6v2/
 obj-$(CONFIG_MSM_HW3D) += hw3d.o
@@ -383,7 +380,11 @@ obj-$(CONFIG_MSM_VP_REGULATOR) += msm_vp.o
 ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
+obj-$(CONFIG_ARCH_RANDOM) += early_random.o
 # SWISTART
 obj-$(CONFIG_SIERRA) += sierra_bscommon.o sierra_i2c.o sierra_spi.o
 obj-$(CONFIG_SIERRA_SMEM) += sierra_smem.o sierra_smem_errdump.o
+obj-$(CONFIG_SIERRA_I2C_INF) += sierra_i2c.o
+obj-$(CONFIG_SIERRA_SPI_INF) += sierra_spi.o
+obj-$(CONFIG_SIERRA) += sierra_bscommon.o
 #SWISTOP

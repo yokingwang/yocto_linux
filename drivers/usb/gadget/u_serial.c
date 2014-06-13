@@ -1368,7 +1368,7 @@ int gserial_setup(struct usb_gadget *g, unsigned count)
 	 *But here should be modified for customer.
 	 */
 	gs_tty_driver->init_termios.c_oflag &= (~ONLCR);
-#endif /* CONFIG_SIERRA*/
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 
 	coding.dwDTERate = cpu_to_le32(9600);
