@@ -29,7 +29,11 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/module.h>
-
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#include "../../arch/arm/mach-msm/include/mach/rpm-regulator-9615.h"
+#endif
+/* SWISTOP */
 #define CREATE_TRACE_POINTS
 #include <trace/events/regulator.h>
 
@@ -53,6 +57,11 @@ static bool has_full_constraints;
 static bool board_wants_dummy_regulator;
 static int suppress_info_printing;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static struct regulator *reg[RPM_VREG_ID_PM8018_MAX_REAL]={0};
+#endif
+/* SWISTOP */
 static struct dentry *debugfs_root;
 
 /*
@@ -97,6 +106,11 @@ static struct regulator *create_regulator(struct regulator_dev *rdev,
 					  struct device *dev,
 					  const char *supply_name);
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+int regulator_enable(struct regulator *regulator);
+#endif
+/* SWISTOP */
 static const char *rdev_get_name(struct regulator_dev *rdev)
 {
 	if (rdev->constraints && rdev->constraints->name)
@@ -603,6 +617,129 @@ static ssize_t regulator_suspend_standby_state_show(struct device *dev,
 static DEVICE_ATTR(suspend_standby_state, 0444,
 		regulator_suspend_standby_state_show, NULL);
 
+
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static ssize_t regulator_enable_set(struct device *dev,
+                 struct device_attribute *attr, const char *buf, size_t count)
+{
+  int err_info;
+  u8  val;
+  struct regulator_dev *rdev = dev_get_drvdata(dev);
+  int id = rdev->desc->id ;
+  
+  err_info = kstrtou8(buf, 0, &val);
+  if( err_info<0 )
+  {
+    pr_err("Regulator_enable_set: get val failed");
+    return err_info;
+  }
+
+
+  if (IS_ERR(reg[id]) || reg[id] == NULL)
+  {
+    reg[id]=regulator_get(NULL, rdev->desc->name);
+    pr_info("Regulator_enable_set:reg[%d]=%p \n",id,reg[id]);
+    if (IS_ERR(reg[id]) || reg[id] == NULL) 
+    {
+      pr_err("Error-Bad Function Input\n");
+      return -EFAULT;
+    }
+  }
+  if (val)
+  {
+    err_info = regulator_enable(reg[id]);
+  }
+else
+{
+  err_info = regulator_disable(reg[id]);
+}  
+  return count;
+}
+
+static ssize_t regulator_enable_get(struct device *dev,
+                  struct device_attribute *attr, char *buf)
+{
+  struct regulator_dev *rdev = dev_get_drvdata(dev);
+  ssize_t ret;
+
+  mutex_lock(&rdev->mutex);
+  ret=sprintf(buf, "%d\n", _regulator_is_enabled(rdev));
+  mutex_unlock(&rdev->mutex);
+  
+  return ret;
+}
+static DEVICE_ATTR(enable, 0644, regulator_enable_get, regulator_enable_set);
+
+static ssize_t regulator_voltage_set(struct device *dev,
+                   struct device_attribute *attr, const char *buf, size_t count)
+{
+  struct regulator_dev *rdev = dev_get_drvdata(dev);
+  int  id = 0;
+  char temp_buf[50];
+  int  min_microvolts = 0;
+  int  max_microvolts = 0;
+  int  err_info;
+  int  filled = 0;
+  
+  if(count > 50)
+  {
+    pr_info("regulator_voltage_set: Not enough memory ");
+    return -ENOMEM;
+  }
+  
+  if (memcpy(temp_buf, buf, count)== NULL)
+  {
+    pr_err("regulator_voltage_set: copy from use space failed %s", buf );
+    return -EFAULT;
+  }
+  temp_buf[count]= '\0';
+
+  filled = sscanf(temp_buf, "%d %d", &min_microvolts, &max_microvolts);
+
+  /* check that user entered two numbers */
+  if (filled < 2 || min_microvolts < 0 || max_microvolts < min_microvolts)
+  {
+    pr_err("Error, correct format: 'echo \"min max\""
+          " > voltage. filled=%d, min=%d, max =%d \r\n", filled,min_microvolts,max_microvolts);
+    return -EINVAL;
+  } 
+  else
+  {
+    id = rdev->desc->id;
+    if (IS_ERR(reg[id]) || reg[id] == NULL) 
+    {
+      reg[id] = regulator_get(NULL, rdev->desc->name);
+      pr_info("regulator_voltage_set:reg[%d]=%p \n",id,reg[id]);
+      if (IS_ERR(reg[id]) || reg[id] == NULL) 
+      {
+        pr_err("Error-Bad Function Input\n");
+        return -EFAULT;
+      }
+    }
+   
+  	err_info = regulator_set_voltage(reg[id],min_microvolts, max_microvolts);
+   
+  }
+   
+  return count;
+}
+
+static ssize_t regulator_voltage_get(struct device *dev,
+                 struct device_attribute *attr, char *buf)
+{
+  struct regulator_dev *rdev = dev_get_drvdata(dev);
+  int id = rdev->desc->id;
+  ssize_t ret;
+
+  ret = sprintf(buf, "min_microvolts:%d max_microvolts:%d \n", reg[id]->min_uV,reg[id]->max_uV);
+
+  return ret;
+}
+static DEVICE_ATTR(voltage, 0644, regulator_voltage_get, regulator_voltage_set);
+
+#endif
+/* SWISTOP */
 
 /*
  * These are the only attributes are present for all regulators.
@@ -2743,6 +2880,16 @@ static int add_regulator_attributes(struct regulator_dev *rdev)
 		return status;
 
 	/* constraints need specific supporting methods */
+/* SWISTART*/
+#ifdef CONFIG_SIERRA   
+  if (ops->enable)
+  {
+    status = device_create_file(dev, &dev_attr_enable);
+    if (status < 0)
+    return status;
+  } 
+#endif
+/* SWISTOP */
 	if (ops->set_voltage || ops->set_voltage_sel) {
 		status = device_create_file(dev, &dev_attr_min_microvolts);
 		if (status < 0)
@@ -2750,6 +2897,13 @@ static int add_regulator_attributes(struct regulator_dev *rdev)
 		status = device_create_file(dev, &dev_attr_max_microvolts);
 		if (status < 0)
 			return status;
+/* SWISTART*/
+#ifdef CONFIG_SIERRA  
+    status = device_create_file(dev, &dev_attr_voltage);
+    if (status < 0)
+    return status;
+#endif
+/* SWISTOP */
 	}
 	if (ops->set_current_limit) {
 		status = device_create_file(dev, &dev_attr_min_microamps);

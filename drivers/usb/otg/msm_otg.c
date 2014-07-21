@@ -40,6 +40,7 @@
 #include <linux/mfd/pm8xxx/pm8921-charger.h>
 #include <linux/mfd/pm8xxx/misc.h>
 #include <linux/mhl_8334.h>
+#include <linux/gpio.h>
 
 #include <mach/scm.h>
 #include <mach/clk.h>
@@ -47,6 +48,22 @@
 #include <mach/msm_xo.h>
 #include <mach/msm_bus.h>
 #include <mach/rpm-regulator.h>
+
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+#include <linux/gpio.h>
+#include <linux/irq.h>
+#include <linux/usb/msm_hsusb.h>
+
+static unsigned vddmin_gpio;
+static unsigned int msm_otg_sessvld_int;
+static bool msm_otg_connected = false;
+
+/* Based on case 1091889 */
+struct workqueue_struct *suspend_work_q = NULL;
+#endif
+/* SWISTOP */
 
 #define MSM_USB_BASE	(motg->regs)
 #define DRIVER_NAME	"msm_otg"
@@ -823,6 +840,21 @@ static int msm_otg_set_suspend(struct usb_phy *phy, int suspend)
 	return 0;
 }
 
+/* SWISTART */
+/* Based on case 1091889 */
+#ifdef CONFIG_SIERRA
+static void pm_suspend_w(struct work_struct *w)
+{
+	if(msm_get_usb_det() == 2)
+	{
+		pm_suspend(PM_SUSPEND_MEM);
+	}
+}
+
+static DECLARE_WORK(suspend_work_fast, pm_suspend_w);
+#endif
+/* SWISTOP */
+
 #define PHY_SUSPEND_TIMEOUT_USEC	(500 * 1000)
 #define PHY_RESUME_TIMEOUT_USEC	(100 * 1000)
 
@@ -934,6 +966,32 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	 * BC1.2 spec mandates PD to enable VDP_SRC when charging from DCP.
 	 * PHY retention and collapse can not happen with VDP_SRC enabled.
 	 */
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+	if (msm_get_usb_det() == 2)
+	{
+		if (motg->caps & ALLOW_PHY_RETENTION && !host_bus_suspend &&
+		/* !device_bus_suspend && */ !dcp)
+		{
+			phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
+			if (!device_bus_suspend && motg->pdata->otg_control == OTG_PHY_CONTROL)
+				/* Enable PHY HV interrupts to wake MPM/Link */
+				phy_ctrl_val |=
+					(PHY_IDHV_INTEN | PHY_OTGSESSVLDHV_INTEN);
+
+			if (device_bus_suspend) {
+				gpio_direction_output(pdata->vdd_min_enable, 1);
+			}
+
+			writel_relaxed(phy_ctrl_val & ~PHY_RETEN, USB_PHY_CTRL);
+			motg->lpm_flags |= PHY_RETENTIONED;
+		}
+	}
+	else
+	{
+#endif
+/* SWISTOP */
 	if (motg->caps & ALLOW_PHY_RETENTION && !host_bus_suspend &&
 		!device_bus_suspend && !dcp) {
 		phy_ctrl_val = readl_relaxed(USB_PHY_CTRL);
@@ -950,6 +1008,12 @@ static int msm_otg_suspend(struct msm_otg *motg)
 		writel_relaxed(phy_ctrl_val & ~PHY_RETEN, USB_PHY_CTRL);
 		motg->lpm_flags |= PHY_RETENTIONED;
 	}
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+	}
+#endif
+/* SWISTOP */
 
 	/* Ensure that above operation is completed before turning off clocks */
 	mb();
@@ -1009,6 +1073,15 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	dev_info(phy->dev, "USB in low power mode\n");
 
+/* SWISTART */
+/* Based on case 1091889 */
+#ifdef CONFIG_SIERRA
+	if(msm_get_usb_det() == 2 && device_bus_suspend){
+		queue_work(suspend_work_q, &suspend_work_fast);
+	}
+#endif
+/* SWISTOP */
+
 	return 0;
 }
 
@@ -1027,6 +1100,19 @@ static int msm_otg_resume(struct msm_otg *motg)
 
 	disable_irq(motg->irq);
 	wake_lock(&motg->wlock);
+
+/* SWISTART */
+/* Based on case 1091889 */
+#ifdef CONFIG_SIERRA
+	if (msm_get_usb_det() == 2)
+	{
+		if(work_pending(&suspend_work_fast))
+		{
+			cancel_work_sync(&suspend_work_fast);
+		}
+	}
+#endif
+/* SWISTOP */
 
 	/* Vote for TCXO when waking up the phy */
 	if (motg->lpm_flags & XO_SHUTDOWN) {
@@ -1062,6 +1148,15 @@ static int msm_otg_resume(struct msm_otg *motg)
 				~(PHY_IDHV_INTEN | PHY_OTGSESSVLDHV_INTEN);
 		writel_relaxed(phy_ctrl_val, USB_PHY_CTRL);
 		motg->lpm_flags &= ~PHY_RETENTIONED;
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+		if (msm_get_usb_det() == 2)
+		{
+			gpio_direction_input(pdata->vdd_min_enable);
+		}
+#endif
+/* SWISTOP */
 	}
 
 	temp = readl(USB_USBCMD);
@@ -2357,6 +2452,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 	struct usb_otg *otg = motg->phy.otg;
 	bool work = 0, srp_reqd;
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	enum usb_otg_state	otg_state = otg->phy->state;
+	static enum usb_chg_type charger_type = USB_INVALID_CHARGER;
+#endif
+/* SWISTOP */
 	pm_runtime_resume(otg->phy->dev);
 	pr_debug("%s work\n", otg_state_string(otg->phy->state));
 	switch (otg->phy->state) {
@@ -2440,6 +2541,21 @@ static void msm_otg_sm_work(struct work_struct *w)
 						OTG_STATE_B_PERIPHERAL;
 					mod_timer(&motg->chg_check_timer,
 							CHG_RECHECK_DELAY);
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+					if (msm_get_usb_det() == 2)
+					{
+						msm_mpm_set_pin_type(motg->pdata->mpm_otgsessvld_int, IRQ_TYPE_EDGE_FALLING);
+					}
+					else
+					{
+						/* usb_det is not ready at this time, so buffer the mpm_otgsessvld_int */
+						msm_otg_sessvld_int = motg->pdata->mpm_otgsessvld_int;
+						msm_otg_connected = true;
+					}
+#endif
+/* SWISTOP */
 					break;
 				default:
 					break;
@@ -2467,6 +2583,21 @@ static void msm_otg_sm_work(struct work_struct *w)
 			motg->chg_type = USB_INVALID_CHARGER;
 			msm_otg_notify_charger(motg, 0);
 			msm_otg_reset(otg->phy);
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+			if (msm_get_usb_det() == 2)
+			{
+				msm_mpm_set_pin_type(motg->pdata->mpm_otgsessvld_int, IRQ_TYPE_EDGE_RISING);
+			}
+			else
+			{
+				/* usb_det is not ready at this time, so buffer the mpm_otgsessvld_int */
+				msm_otg_sessvld_int = motg->pdata->mpm_otgsessvld_int;
+				msm_otg_connected = false;
+			}
+#endif
+/* SWISTOP */
 			/*
 			 * There is a small window where ID interrupt
 			 * is not monitored during ID detection circuit
@@ -2939,6 +3070,19 @@ static void msm_otg_sm_work(struct work_struct *w)
 	}
 	if (work)
 		queue_work(system_nrt_wq, &motg->sm_work);
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Notfiy userspace when state changed */
+	if ((otg_state != otg->phy->state) || (charger_type != motg->chg_type)) {
+		dev_info(otg->phy->dev, "OTG state %s, charger_type %s\n", (otg_state != otg->phy->state)?"changed":"NOT changed",
+		(charger_type != motg->chg_type)?"changed":"NOT changed");
+		if (charger_type != motg->chg_type) {
+			charger_type = motg->chg_type;
+		}
+		kobject_uevent(&motg->phy.dev->kobj, KOBJ_CHANGE);
+	}
+#endif
+/* SWISTOP */
 }
 
 static void msm_otg_suspend_work(struct work_struct *w)
@@ -3561,6 +3705,85 @@ static void msm_otg_debugfs_cleanup(void)
 	debugfs_remove_recursive(msm_otg_dbg_root);
 }
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+static ssize_t show_chg_type(struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	struct msm_otg *motg = dev_get_drvdata(dev);
+	int n = 0;
+	
+	if (attr == NULL || buf == NULL) {
+		dev_err(dev, "[%s] EINVAL\n", __func__);
+		return 0;
+	}
+	
+	n = scnprintf(buf, PAGE_SIZE, "%s", chg_to_string(motg->chg_type));
+
+	return n;
+}
+
+static DEVICE_ATTR(chg_type, S_IRUSR, show_chg_type, NULL);
+
+static ssize_t show_otg_state(struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	struct msm_otg *motg = dev_get_drvdata(dev);
+	struct usb_phy *phy = &motg->phy;
+	int n = 0;
+	
+	if (attr == NULL || buf == NULL) {
+		dev_err(dev, "[%s] EINVAL\n", __func__);
+		return 0;
+	}
+	
+	n = scnprintf(buf, PAGE_SIZE, "%s", otg_state_string(phy->state));
+
+	return n;
+}
+static DEVICE_ATTR(otg_state, S_IRUSR, show_otg_state, NULL);
+
+/**
+ * msm_otg_sysfs_create_files: initializes the attribute interface
+ * @dev: device
+ *
+ * This function returns an error code
+ */
+__maybe_unused static int msm_otg_sysfs_create_files(struct device *dev)
+{
+	int retval = 0;
+
+	if (dev == NULL)
+		return -EINVAL;
+	/* Create sysfs to /sys/devices/platform/msm_otg/ */
+	retval = device_create_file(dev, &dev_attr_chg_type);
+	if (retval)
+		goto done;
+	retval = device_create_file(dev, &dev_attr_otg_state);
+	if (retval)
+		device_remove_file(dev, &dev_attr_chg_type);
+
+done:
+	return retval;
+}
+
+/**
+ * msm_otg_sysfs_remove_files: destroys the attribute interface
+ * @dev: device
+ *
+ * This function returns an error code
+ */
+__maybe_unused static int msm_otg_sysfs_remove_files(struct device *dev)
+{
+	if (dev == NULL)
+		return -EINVAL;
+	device_remove_file(dev, &dev_attr_chg_type);
+	device_remove_file(dev, &dev_attr_otg_state);
+	return 0;
+}
+#endif /* end of CONFIG_SIERRA */
+/* SWISTOP */
+
 #define MSM_OTG_CMD_ID		0x09
 #define MSM_OTG_DEVICE_ID	0x04
 #define MSM_OTG_VMID_IDX	0xFF
@@ -4012,6 +4235,16 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "mode debugfs file is"
 			"not available\n");
 
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Init sysfs */
+	ret = msm_otg_sysfs_create_files(&pdev->dev);
+	if (ret)
+		dev_dbg(&pdev->dev, "mode sysfs file is"
+			"not available\n");
+#endif /* end of CONFIG_SIERRA */
+/* SWISTOP */
+
 	if (motg->pdata->phy_type == SNPS_28NM_INTEGRATED_PHY) {
 		if (motg->pdata->otg_control == OTG_PMIC_CONTROL &&
 			(!(motg->pdata->mode == USB_OTG) ||
@@ -4026,6 +4259,22 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	if (motg->pdata->enable_lpm_on_dev_suspend)
 		motg->caps |= ALLOW_LPM_ON_DEV_SUSPEND;
+
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+	if (msm_get_usb_det() == 2)
+	{
+		gpio_request(motg->pdata->vdd_min_enable, "VDD_MIN_GPIO"); 
+		gpio_direction_input(motg->pdata->vdd_min_enable); 
+	}
+	else
+	{
+		/* usb_det may be not ready at this time, so buffer the mpm_otgsessvld_int */
+		vddmin_gpio = motg->pdata->vdd_min_enable;
+	}
+#endif
+/* SWISTOP */
 
 	wake_lock(&motg->wlock);
 	pm_runtime_set_active(&pdev->dev);
@@ -4068,6 +4317,21 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 
 	if (legacy_power_supply && pdata->otg_control == OTG_PMIC_CONTROL)
 		pm8921_charger_register_vbus_sn(&msm_otg_set_vbus_state);
+
+/* SWISTART */
+/* Based on case 1091889 */
+#ifdef CONFIG_SIERRA
+	if (msm_get_usb_det() == 2)
+	{
+		suspend_work_q = create_singlethread_workqueue("suspend_usb");
+		if (suspend_work_q == NULL) {
+			ret = -ENOMEM;
+			dev_err(&pdev->dev, "Unable to create PM suspend workqueue\n");
+			goto remove_phy;
+		}
+	}
+#endif
+/* SWISTOP */
 
 	return 0;
 
@@ -4113,6 +4377,31 @@ free_motg:
 	return ret;
 }
 
+/* SWISTART */
+/* Change based on 80-N5423-14 */
+#ifdef CONFIG_SIERRA
+void msm_otg_vddmin_init(void)
+{
+	gpio_request(vddmin_gpio, "VDD_MIN_GPIO"); 
+	gpio_direction_input(vddmin_gpio); 
+
+	/* Based on case 1091889 */
+	if (suspend_work_q == NULL)
+	{
+		suspend_work_q = create_singlethread_workqueue("suspend_usb");
+	}
+
+	if (msm_otg_connected)
+	{
+		msm_mpm_set_pin_type(msm_otg_sessvld_int, IRQ_TYPE_EDGE_FALLING);
+	}
+	else
+	{
+		msm_mpm_set_pin_type(msm_otg_sessvld_int, IRQ_TYPE_EDGE_RISING);
+	}
+}
+#endif
+/* SWISTOP */
 static int __devexit msm_otg_remove(struct platform_device *pdev)
 {
 	struct msm_otg *motg = platform_get_drvdata(pdev);
@@ -4128,10 +4417,39 @@ static int __devexit msm_otg_remove(struct platform_device *pdev)
 		pm8921_charger_unregister_vbus_sn(0);
 	msm_otg_mhl_register_callback(motg, NULL);
 	msm_otg_debugfs_cleanup();
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+	/* Remove sysfs */
+	msm_otg_sysfs_remove_files(&pdev->dev);
+#endif /* end of CONFIG_SIERRA */
+/* SWISTOP */
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_delayed_work_sync(&motg->pmic_id_status_work);
+/* SWISTART */
+/* Based on case 1091889 */
+#ifdef CONFIG_SIERRA
+	if (msm_get_usb_det() < 2)
+	{
+#endif /* end of CONFIG_SIERRA */
+/* SWISTOP */
 	cancel_delayed_work_sync(&motg->suspend_work);
+/* SWISTART */
+/* Based on case 1091889 */
+#ifdef CONFIG_SIERRA
+	}
+#endif /* end of CONFIG_SIERRA */
+/* SWISTOP */
+
 	cancel_work_sync(&motg->sm_work);
+/* SWISTART */
+/* Based on case 1091889 */
+#ifdef CONFIG_SIERRA
+	if (msm_get_usb_det() == 2 && suspend_work_q != NULL)
+	{
+		destroy_workqueue(suspend_work_q);
+	}
+#endif /* end of CONFIG_SIERRA */
+/* SWISTOP */
 
 	pm_runtime_resume(&pdev->dev);
 

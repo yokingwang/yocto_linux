@@ -92,8 +92,21 @@ extern struct platform_device apq8064_device_ssbi_pmic2;
 extern struct platform_device apq8064_device_cache_erp;
 
 extern struct platform_device msm9615_device_uart_gsbi4;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+#ifdef CONFIG_SIERRA_AR7
+extern struct platform_device msm9615_device_uart_gsbi5;
+#endif /* CONFIG_SIERRA_AR7 */
+extern struct platform_device msm9615_device_qup_i2c_gsbi2;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 extern struct platform_device msm9615_device_qup_i2c_gsbi5;
 extern struct platform_device msm9615_device_qup_spi_gsbi3;
+/* SWISTART */
+#ifdef CONFIG_SIERRA
+extern struct platform_device msm9615_device_qup_spi_gsbi4;
+#endif /* CONFIG_SIERRA */
+/* SWISTOP */
 extern struct platform_device msm9615_slim_ctrl;
 extern struct platform_device msm9615_device_ssbi_pmic1;
 extern struct platform_device msm9615_device_tsens;
