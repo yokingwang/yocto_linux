@@ -12,6 +12,12 @@
 #include <linux/idr.h>
 #include <linux/slab.h>
 
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_EXT_GPIO
+#include <linux/sierra_bsudefs.h>
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/gpio.h>
 
@@ -76,6 +82,97 @@ static struct gpio_desc gpio_desc[ARCH_NR_GPIOS];
 #ifdef CONFIG_GPIO_SYSFS
 static DEFINE_IDR(dirent_idr);
 #endif
+
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_EXT_GPIO
+#define NR_EXT_GPIOS 10
+
+typedef enum
+{
+  UNALLOCATED = 0,
+  ECALL_GPIO,
+  ANT_SEL_GPIO,
+  EXT_SIM2_DET,
+  GENERAL_GPIO,
+  EMBEDED_HOST = 16,
+  MAX_FUN,
+}ar_ext_gpio_funtction;
+
+struct ext_gpio_map{
+	int ext_num;
+	int gpio_num;
+	unsigned function;
+};
+struct ext_gpio_map ext_gpio[]={
+	{1,80,UNALLOCATED},
+	{2,73,UNALLOCATED},
+	{3,30,UNALLOCATED},
+	{4,29,UNALLOCATED},
+	{5,4,UNALLOCATED},
+	{6,72,UNALLOCATED},
+	{7,21,UNALLOCATED},
+	{8,60,UNALLOCATED},
+	{9,45,UNALLOCATED},
+	{10,40,UNALLOCATED}
+};
+
+
+struct gpio_chip gpio_ext_chip = {
+		.label  = "msmextgpio",
+		.base   = 1,
+		.ngpio  = NR_EXT_GPIOS,
+};
+int ext_map_gpio(int offset)
+{
+	int i;
+	for(i = 0; i < ARRAY_SIZE(ext_gpio); i++)
+	{
+		if(offset == ext_gpio[i].ext_num)
+		{
+			if(EMBEDED_HOST == ext_gpio[i].function)
+			{
+				return ext_gpio[i].gpio_num;
+			}
+			else
+			{
+				pr_err("The gpio%d is not supported", ext_gpio[i].ext_num);
+				return -1;
+			}
+		}
+	}
+	if(i == ARRAY_SIZE(ext_gpio))
+	{
+		pr_err("Can not find GPIO%d", offset);
+	}
+	return -1;
+}
+
+int gpio_map_ext(int offset)
+{
+	int i;
+	for(i = 0; i < ARRAY_SIZE(ext_gpio); i++)
+	{
+		if(offset == ext_gpio[i].gpio_num)
+		{
+			if(EMBEDED_HOST == ext_gpio[i].function)
+			{
+				return ext_gpio[i].ext_num;
+			}
+			else
+			{
+				pr_err("The gpio%d is not supported", ext_gpio[i].ext_num);
+				return -1;
+			}
+		}
+	}
+	if(i == ARRAY_SIZE(ext_gpio))
+	{
+		pr_err("Can not find GPIO%d", offset);
+	}
+	return -1;
+}
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
 
 static inline void desc_set_label(struct gpio_desc *d, const char *label)
 {
@@ -635,10 +732,28 @@ static ssize_t chip_ngpio_show(struct device *dev,
 }
 static DEVICE_ATTR(ngpio, 0444, chip_ngpio_show, NULL);
 
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_EXT_GPIO
+static ssize_t chip_mask_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	const struct gpio_chip	*chip = dev_get_drvdata(dev);
+
+	return sprintf(buf, "0x%x\n", chip->mask);
+}
+static DEVICE_ATTR(mask, 0444, chip_mask_show, NULL);
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
+
 static const struct attribute *gpiochip_attrs[] = {
 	&dev_attr_base.attr,
 	&dev_attr_label.attr,
 	&dev_attr_ngpio.attr,
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_EXT_GPIO
+	&dev_attr_mask.attr,
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
 	NULL,
 };
 
@@ -658,16 +773,43 @@ static ssize_t export_store(struct class *class,
 {
 	long	gpio;
 	int	status;
+	
+/*SWISTART*/ 
+#ifdef CONFIG_SIERRA_EXT_GPIO	
+	int int_gpio = -1;
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
 
 	status = strict_strtol(buf, 0, &gpio);
 	if (status < 0)
 		goto done;
+/*SWISTART*/ 
+#ifdef CONFIG_SIERRA_EXT_GPIO
+		int_gpio = ext_map_gpio(gpio);
+		if(int_gpio < 0)
+			return int_gpio;
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
 
 	/* No extra locking here; FLAG_SYSFS just signifies that the
-	 * request and export were done by on behalf of userspace, so
+	 * request and export were done on behalf of userspace, so
 	 * they may be undone on its behalf too.
 	 */
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_EXT_GPIO
+	status = gpio_request(int_gpio, "sysfs");
+	if (status < 0){
+		if (status == -EPROBE_DEFER)
+			status = -ENODEV;
+		goto done;
+	}
+	status = gpio_export(int_gpio, true);
+	if (status < 0)
+		gpio_free(int_gpio);
+	else
+		set_bit(FLAG_SYSFS, &gpio_desc[int_gpio].flags);
 
+#else
 	status = gpio_request(gpio, "sysfs");
 	if (status < 0) {
 		if (status == -EPROBE_DEFER)
@@ -679,6 +821,8 @@ static ssize_t export_store(struct class *class,
 		gpio_free(gpio);
 	else
 		set_bit(FLAG_SYSFS, &gpio_desc[gpio].flags);
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
 
 done:
 	if (status)
@@ -693,10 +837,36 @@ static ssize_t unexport_store(struct class *class,
 	long	gpio;
 	int	status;
 
+/*SWISTART*/ 
+#ifdef CONFIG_SIERRA_EXT_GPIO	
+	int int_gpio = -1;
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
+
 	status = strict_strtol(buf, 0, &gpio);
 	if (status < 0)
 		goto done;
+/*SWISTART*/ 
+#ifdef CONFIG_SIERRA_EXT_GPIO
+	int_gpio = ext_map_gpio(gpio);
+	if(int_gpio < 0)
+		return int_gpio;
 
+	status = -EINVAL;
+
+	/* reject bogus commands (gpio_unexport ignores them) */
+	if (!gpio_is_valid(int_gpio))
+		goto done;
+
+	/* No extra locking here; FLAG_SYSFS just signifies that the
+	 * request and export were done on behalf of userspace, so
+	 * they may be undone on its behalf too.
+	 */
+	if (test_and_clear_bit(FLAG_SYSFS, &gpio_desc[int_gpio].flags)) {
+		status = 0;
+		gpio_free(int_gpio);
+	}
+#else
 	status = -EINVAL;
 
 	/* reject bogus commands (gpio_unexport ignores them) */
@@ -704,13 +874,15 @@ static ssize_t unexport_store(struct class *class,
 		goto done;
 
 	/* No extra locking here; FLAG_SYSFS just signifies that the
-	 * request and export were done by on behalf of userspace, so
+	 * request and export were done on behalf of userspace, so
 	 * they may be undone on its behalf too.
 	 */
 	if (test_and_clear_bit(FLAG_SYSFS, &gpio_desc[gpio].flags)) {
 		status = 0;
 		gpio_free(gpio);
 	}
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
 done:
 	if (status)
 		pr_debug("%s: status %d\n", __func__, status);
@@ -780,9 +952,16 @@ int gpio_export(unsigned gpio, bool direction_may_change)
 
 	if (status == 0) {
 		struct device	*dev;
-
+/*SWISTART*/ 
+#ifdef CONFIG_SIERRA_EXT_GPIO
+		dev = device_create(&gpio_class, desc->chip->dev, MKDEV(0, 0),
+		        desc, ioname ? ioname : "gpio%u", gpio_map_ext(gpio));
+#else
 		dev = device_create(&gpio_class, desc->chip->dev, MKDEV(0, 0),
 				desc, ioname ? ioname : "gpio%u", gpio);
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/ 
+
 		if (!IS_ERR(dev)) {
 			status = sysfs_create_group(&dev->kobj,
 						&gpio_attr_group);
@@ -982,7 +1161,7 @@ static int gpiochip_export(struct gpio_chip *chip)
 
 	if (status) {
 		unsigned long	flags;
-		unsigned	gpio;
+		int	gpio;
 
 		spin_lock_irqsave(&gpio_lock, flags);
 		gpio = chip->base;
@@ -1035,6 +1214,23 @@ static int __init gpiolib_sysfs_init(void)
 	 * registered, and so arch_initcall() can always gpio_export().
 	 */
 	spin_lock_irqsave(&gpio_lock, flags);
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_EXT_GPIO
+	gpio_ext_chip.mask = bsgetgpioflag();
+	for(gpio = 0; gpio < gpio_ext_chip.ngpio; gpio++)
+	{
+		if(gpio_ext_chip.mask & (0x0001 << gpio))
+		{
+			ext_gpio[gpio].function = EMBEDED_HOST;
+		}
+		else
+		{
+			ext_gpio[gpio].function = UNALLOCATED;
+		}
+	}
+    gpio_ext_chip.dev = gpio_desc[0].chip->dev;
+	status = gpiochip_export(&gpio_ext_chip);
+#else
 	for (gpio = 0; gpio < ARCH_NR_GPIOS; gpio++) {
 		struct gpio_chip	*chip;
 
@@ -1046,8 +1242,9 @@ static int __init gpiolib_sysfs_init(void)
 		status = gpiochip_export(chip);
 		spin_lock_irqsave(&gpio_lock, flags);
 	}
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
 	spin_unlock_irqrestore(&gpio_lock, flags);
-
 
 	return status;
 }

@@ -136,6 +136,11 @@ struct gpio_chip {
 	int (*of_xlate)(struct gpio_chip *gc,
 		        const struct of_phandle_args *gpiospec, u32 *flags);
 #endif
+/*SWISTART*/
+#ifdef CONFIG_SIERRA_EXT_GPIO
+	unsigned mask;
+#endif /*CONFIG_SIERRA_EXT_GPIO*/
+/*SWISTOP*/
 };
 
 extern const char *gpiochip_is_requested(struct gpio_chip *chip,
