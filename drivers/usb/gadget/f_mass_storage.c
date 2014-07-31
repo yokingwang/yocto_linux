@@ -3124,7 +3124,7 @@ buffhds_first_it:
 				     ? "File-Stor Gadget"
 				     : "File-CD Gadget"),
 		 i);
-#endif /* CONFIG_SIERRA */
+#endif /* CONFIG_SIERRA_USB_COMP */
 /* SWISTOP */
 	/*
 	 * Some peripheral controllers are known not to be able to
