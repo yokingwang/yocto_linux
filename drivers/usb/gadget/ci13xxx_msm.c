@@ -113,8 +113,6 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 
 static bool ci13xxx_msm_in_lpm(struct ci13xxx *udc)
 {
-#if 0 /* DM, FIXME struct msm_org does not contain member otg, but contains
-         phy.otg . */
 	struct msm_otg *otg;	
 
 	if (udc == NULL)
@@ -123,16 +121,13 @@ static bool ci13xxx_msm_in_lpm(struct ci13xxx *udc)
 	if (udc->transceiver == NULL)
 		return false;
 
-	otg = container_of(udc->transceiver, struct msm_otg, otg);
+	otg = container_of(udc->transceiver, struct msm_otg, phy);
 
 	return (atomic_read(&otg->in_lpm) != 0);
-#endif
 }
 
 static void ci13xxx_msm_set_fpr_flag(struct ci13xxx *udc)
 {
-#if 0 /* DM, FIXME struct msm_org does not contain member otg, but contains
-         phy.otg . */
 	struct msm_otg *otg;
 
 	if (udc == NULL)
@@ -141,10 +136,9 @@ static void ci13xxx_msm_set_fpr_flag(struct ci13xxx *udc)
 	if (udc->transceiver == NULL)
 		return;
 
-	otg = container_of(udc->transceiver, struct msm_otg, otg);
+	otg = container_of(udc->transceiver, struct msm_otg, phy);
 
 	atomic_set(&otg->set_fpr_with_lpm_exit, 1);
-#endif
 }
 
 static irqreturn_t ci13xxx_msm_resume_irq(int irq, void *data)
