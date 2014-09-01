@@ -1164,13 +1164,11 @@ static void __init msm_timer_init(void)
 	}
 	msm_sched_clock_init();
 
-#if 0 /* DM, FIXME: Unfortunately, this does not compile in Yocto 3.4 */
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
 	if (is_smp()) {
 		__raw_writel(1, msm_clocks[MSM_CLOCK_DGT].regbase + TIMER_ENABLE);
 		set_delay_fn(read_current_timer_delay_loop);
    }
-#endif
 #endif
 #ifdef CONFIG_LOCAL_TIMERS
 	local_timer_register(&msm_lt_ops);
