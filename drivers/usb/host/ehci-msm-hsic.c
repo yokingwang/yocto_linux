@@ -1598,7 +1598,7 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 		return  -ENOMEM;
 	}
 
-	hcd_to_bus(hcd)->skip_resume = true;
+	hcd_to_bus(hcd)->skip_resume = false;
 
 	hcd->irq = platform_get_irq(pdev, 0);
 	if (hcd->irq < 0) {
