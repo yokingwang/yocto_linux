@@ -31,8 +31,7 @@
 #include <linux/module.h>
 /* SWISTART */
 #ifdef CONFIG_SIERRA_ANT_DETECTION
-/* DM, FIXME: Not very good idea, Makefile should take care of the path. */
-#include "../../arch/arm/mach-msm/include/mach/rpm-regulator-9615.h"
+#include "mach/rpm-regulator-9615.h"
 #endif
 /* SWISTOP */
 #define CREATE_TRACE_POINTS
