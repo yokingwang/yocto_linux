@@ -882,9 +882,7 @@ static void pm_suspend_w(struct work_struct *w)
 	struct msm_otg *motg = the_msm_otg;
 	if (atomic_read(&motg->pm_suspended))
 		return;
-	/* release wakeup source to allow suspend */
-	pr_debug("%s: can sleep now...\n", __func__);
-	__pm_relax(&motg->ws);
+	pm_suspend(PM_SUSPEND_MEM);
 }
 #endif /* CONFIG_SIERRA */
 /* SWISTOP */
@@ -1439,14 +1437,7 @@ static int msm_otg_set_power(struct usb_phy *phy, unsigned mA)
 	 * states when CDP/ACA is connected.
 	 */
 	if (motg->chg_type == USB_SDP_CHARGER)
-	{
 		msm_otg_notify_charger(motg, mA);
-		if (IDEV_CHG_MIN <= mA) {
-			/* connected to charger, grab wakeup source */
-			pr_debug("%s: charging, stay awake...\n", __func__);
-			__pm_stay_awake(&motg->ws);
-		}
-	}
 
 	return 0;
 }
