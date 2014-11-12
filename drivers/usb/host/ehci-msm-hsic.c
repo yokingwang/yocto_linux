@@ -80,7 +80,6 @@ struct msm_hsic_hcd {
 	struct regulator	*hsic_gdsc;
 	atomic_t			async_int;
 	atomic_t                in_lpm;
-	struct wake_lock	wlock;
 	int			peripheral_status_irq;
 	int			wakeup_irq;
 	bool			wakeup_irq_enabled;
@@ -748,7 +747,6 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 			PM_QOS_DEFAULT_VALUE);
 #endif
 /* SWISTOP */
-	wake_unlock(&mehci->wlock);
 
 	dev_info(mehci->dev, "HSIC-USB in low power mode\n");
 
@@ -790,8 +788,6 @@ static int msm_hsic_resume(struct msm_hsic_hcd *mehci)
 	   }
 	   spin_unlock_irqrestore(&mehci->wakeup_lock, flags);
 	}
-
-	wake_lock(&mehci->wlock);
 
 	if (mehci->bus_perf_client && debug_bus_voting_enabled) {
 		mehci->bus_vote = true;
@@ -1350,7 +1346,8 @@ static irqreturn_t msm_hsic_wakeup_irq(int irq, void *data)
 	dev_dbg(mehci->dev, "%s: hsic remote wakeup interrupt %d cnt: %u, %u\n",
 		    __func__, irq, mehci->wakeup_int_cnt, mehci->async_int_cnt);
 
-	wake_lock(&mehci->wlock);
+	/* allow 200 ms for userspace to process event */
+	pm_wakeup_event(mehci->dev, 200);
 
 	if (mehci->wakeup_irq) {
 		spin_lock(&mehci->wakeup_lock);
@@ -1687,8 +1684,6 @@ static int __devinit ehci_hsic_msm_probe(struct platform_device *pdev)
 	}
 
 	device_init_wakeup(&pdev->dev, 1);
-	wake_lock_init(&mehci->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
-	wake_lock(&mehci->wlock);
 
 	if (mehci->peripheral_status_irq) {
 		ret = request_threaded_irq(mehci->peripheral_status_irq,
@@ -1842,7 +1837,6 @@ static int __devexit ehci_hsic_msm_remove(struct platform_device *pdev)
 	msm_hsic_init_vddcx(mehci, 0);
 
 	msm_hsic_init_clocks(mehci, 0);
-	wake_lock_destroy(&mehci->wlock);
 	iounmap(hcd->regs);
 	usb_put_hcd(hcd);
 
