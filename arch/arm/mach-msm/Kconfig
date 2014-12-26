@@ -2657,6 +2657,16 @@ config SIERRA_SPI_INF
 	default m
 	help
 	  Sierra spi driver for application interface.
+
+config SIERRA_PANIC_TIMEOUT
+	depends on ARCH_MSM9615
+	int "Kernel Panic Timeout (in seconds)"
+	default 5
+	help
+	   Delay timeout (in seconds) before rebooting the machine. This
+	   value is approximate since normal timers can't be used (kernel
+	   just panicked).
+
 #SWISTOP
 
 config MSM_CACHE_DUMP_ON_PANIC
