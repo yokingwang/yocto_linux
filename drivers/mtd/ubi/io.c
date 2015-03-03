@@ -210,6 +210,9 @@ retry:
 			err = -EIO;
 		}
 	} else {
+		if(len != read) {
+			ubi_err("requested len=%d, read len=%d, addr=0x%x\n", len, read, addr);
+		}
 		ubi_assert(len == read);
 
 		if (ubi_dbg_is_bitflip(ubi)) {
