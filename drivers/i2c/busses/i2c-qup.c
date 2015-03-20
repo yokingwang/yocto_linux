@@ -197,8 +197,8 @@ static inline void qup_print_status(struct qup_i2c_dev *dev)
 }
 #endif
 
-/* SWISTART */
-#ifdef CONFIG_SIERRA_I2C_INF
+#if (defined(CONFIG_SIERRA_GSBI2_I2C_GPIO) || \
+     defined(CONFIG_SIERRA_GSBI5_I2C_UART))
 int swi_set_i2c_freq(struct i2c_adapter *adap,int freq)
 {
 	struct qup_i2c_dev *dev = i2c_get_adapdata(adap);
@@ -211,8 +211,7 @@ int swi_set_i2c_freq(struct i2c_adapter *adap,int freq)
 	dev->clk_ctl = 0;
 	return 0;
 }
-#endif
-/* SWISTOP */
+#endif /* CONFIG_SIERRA_GSBIn_I2C */
 
 static irqreturn_t
 qup_i2c_interrupt(int irq, void *devid)
@@ -812,7 +811,7 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 			 */
 			val = readw_relaxed(dev->gsbi);
 
-#ifdef CONFIG_SIERRA_UART
+#ifdef CONFIG_SIERRA_GSBI5_I2C_UART
 			/* GSBI5 must support both UART2 and I2C. Therefore, GSBI5_CTRL
 			 * PROTOCOL_CODE field must be set to 110.
 			 */
@@ -1116,7 +1115,6 @@ timeout_err:
 	dev->pos = 0;
 	dev->err = 0;
 	dev->cnt = 0;
-/* SWISTART */
 /* Change the inactivity timer period from 3 seconds to 10 milliseconds
  * which allows the TCXO to shutdown faster
  */
@@ -1125,7 +1123,6 @@ timeout_err:
 #else /* CONFIG_SIERRA */
 	dev->pwr_timer.expires = jiffies + 3*HZ;
 #endif /* CONFIG_SIERRA */
-/* SWISTOP */
 	add_timer(&dev->pwr_timer);
 	mutex_unlock(&dev->mlock);
 	return ret;
