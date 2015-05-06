@@ -586,7 +586,7 @@ static int msm_routing_put_voice_mixer(struct snd_kcontrol *kcontrol,
 	struct soc_mixer_control *mc =
 		(struct soc_mixer_control *)kcontrol->private_value;
 
-	pr_debug("%s(): %d\n", __func__, ucontrol->value.integer.value[0] );
+	pr_debug("%s(): %ld\n", __func__, ucontrol->value.integer.value[0] );
 	if (ucontrol->value.integer.value[0]) {
 		msm_pcm_routing_process_voice(mc->reg, mc->shift, 1);
 		snd_soc_dapm_mixer_update_power(widget, kcontrol, 1);
@@ -1965,12 +1965,6 @@ static const struct snd_soc_dapm_widget msm_qdsp6_widgets[] = {
 		0, 0, 0, 0),
 	SND_SOC_DAPM_AIF_OUT("PRI_I2S_UL_HL", "PRI_I2S_HOSTLESS Capture",
 		0, 0, 0, 0),
-	SND_SOC_DAPM_AIF_IN("MI2S_DL_HL", "MI2S_HOSTLESS Playback",
-		0, 0, 0, 0),
-	SND_SOC_DAPM_AIF_OUT("MI2S_UL_HL", "MI2S_HOSTLESS Capture",
-		0, 0, 0, 0),
-	SND_SOC_DAPM_SWITCH("MI2S_RX_DL_HL", SND_SOC_NOPM, 0, 0,
-				&fm_switch_mixer_controls),
 
 	/* Backend AIF */
 	/* Stream name equals to backend dai link stream name
