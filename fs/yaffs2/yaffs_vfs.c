@@ -2050,9 +2050,9 @@ static struct super_block *yaffs_internal_read_super(int yaffs_version,
 
 	yaffs_trace(YAFFS_TRACE_OS, " erase %p", mtd->_erase);
 	yaffs_trace(YAFFS_TRACE_OS, " read %p", mtd->_read);
-	yaffs_trace(YAFFS_TRACE_OS, " write %p", mtd->write);
+	yaffs_trace(YAFFS_TRACE_OS, " write %p", mtd->_write);
 	yaffs_trace(YAFFS_TRACE_OS, " readoob %p", mtd->_read_oob);
-	yaffs_trace(YAFFS_TRACE_OS, " writeoob %p", mtd->write_oob);
+	yaffs_trace(YAFFS_TRACE_OS, " writeoob %p", mtd->_write_oob);
 	yaffs_trace(YAFFS_TRACE_OS, " block_isbad %p", mtd->_block_isbad);
 	yaffs_trace(YAFFS_TRACE_OS, " block_markbad %p", mtd->_block_markbad);
 	yaffs_trace(YAFFS_TRACE_OS, " writesize %d", mtd->writesize);
